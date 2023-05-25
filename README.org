@@ -66,6 +66,7 @@ curl -s http://localhost:8080/v1/graphql -d '{"query":"query {agent(order_by: {i
 #+end_src
 
 #+RESULTS:
+
 #+begin_example
 {
   "data": {
