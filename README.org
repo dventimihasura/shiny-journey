@@ -44,21 +44,90 @@ rules.
 
 1. Start the services with Docker Compose:
 
-#+begin_src shell
+#+begin_src bash
 docker compose up -d
 #+end_src
 
 2. Import the Hasura metadata:
 
-#+begin_src 
+#+begin_src bash :results output
 curl -s http://localhost:8080/v1/metadata -d '{"type":"replace_metadata","args":{"version":3,"sources":[{"name":"default","kind":"postgres","tables":[{"table":{"name":"account","schema":"public"},"array_relationships":[{"name":"orders","using":{"foreign_key_constraint_on":{"column":"account_id","table":{"name":"order","schema":"public"}}}}],"select_permissions":[{"role":"agent","permission":{"columns":["name","created_at","updated_at","id"],"filter":{"_exists":{"_table":{"name":"order","schema":"public"},"_where":{"regionByRegion":{"agent_region":{"agent_id":{"_eq":"X-Hasura-User-Id"}}}}}}}}]},{"table":{"name":"agent","schema":"public"},"array_relationships":[{"name":"agent_regions","using":{"foreign_key_constraint_on":{"column":"agent_id","table":{"name":"agent_region","schema":"public"}}}}],"select_permissions":[{"role":"agent","permission":{"columns":["name","created_at","updated_at","id"],"filter":{"id":{"_eq":"X-Hasura-User-Id"}},"limit":1}}]},{"table":{"name":"agent_region","schema":"public"},"object_relationships":[{"name":"agent","using":{"foreign_key_constraint_on":"agent_id"}},{"name":"regionByRegion","using":{"foreign_key_constraint_on":"region"}}],"select_permissions":[{"role":"agent","permission":{"columns":["region","agent_id"],"filter":{"agent_id":{"_eq":"X-Hasura-User-Id"}}}}]},{"table":{"name":"order","schema":"public"},"object_relationships":[{"name":"account","using":{"foreign_key_constraint_on":"account_id"}},{"name":"regionByRegion","using":{"foreign_key_constraint_on":"region"}}],"array_relationships":[{"name":"order_details","using":{"foreign_key_constraint_on":{"column":"order_id","table":{"name":"order_detail","schema":"public"}}}}],"select_permissions":[{"role":"agent","permission":{"columns":["region","created_at","updated_at","status","account_id","id"],"filter":{"regionByRegion":{"agent_region":{"agent_id":{"_eq":"X-Hasura-User-Id"}}}},"allow_aggregations":true}}]},{"table":{"name":"order_detail","schema":"public"},"object_relationships":[{"name":"order","using":{"foreign_key_constraint_on":"order_id"}},{"name":"product","using":{"foreign_key_constraint_on":"product_id"}}],"select_permissions":[{"role":"agent","permission":{"columns":["units","created_at","updated_at","id","order_id","product_id"],"filter":{"order":{"regionByRegion":{"agent_region":{"agent_id":{"_eq":"X-Hasura-User-Id"}}}}},"allow_aggregations":true}}]},{"table":{"name":"product","schema":"public"},"array_relationships":[{"name":"order_details","using":{"foreign_key_constraint_on":{"column":"product_id","table":{"name":"order_detail","schema":"public"}}}}],"select_permissions":[{"role":"agent","permission":{"columns":["price","name","created_at","updated_at","id"],"filter":{}}}]},{"table":{"name":"region","schema":"public"},"object_relationships":[{"name":"agent_region","using":{"foreign_key_constraint_on":{"column":"region","table":{"name":"agent_region","schema":"public"}}}}],"array_relationships":[{"name":"orders","using":{"foreign_key_constraint_on":{"column":"region","table":{"name":"order","schema":"public"}}}}],"select_permissions":[{"role":"agent","permission":{"columns":["description","value"],"filter":{}}}]}],"functions":[{"function":{"name":"product_search","schema":"public"}},{"function":{"name":"product_search_slow","schema":"public"}}],"configuration":{"connection_info":{"database_url":{"from_env":"HASURA_GRAPHQL_DATABASE_URL"},"isolation_level":"read-committed","pool_settings":{"connection_lifetime":600,"idle_timeout":180,"max_connections":50,"retries":1},"use_prepared_statements":true}}}]}}' | jq -r '.'
 #+end_src
 
+#+RESULTS:
+: {
+:   "message": "success"
+: }
+
 3. Get agent sales figures for 3 agents filtering purely with Hasura authorization rules.
 
-#+begin_src shell
+#+begin_src bash :results output
 curl -s http://localhost:8080/v1/graphql -d '{"query":"query {agent(order_by: {id: asc}, limit: 3) {id}}"}' | jq -r '.data.agent[].id' | xargs -I {} curl -s http://localhost:8080/v1/graphql -H 'x-hasura-role: agent' -H 'x-hasura-user-id: {}' -d '{"query":"query{agent{id name agent_regions{region}}order_aggregate{aggregate{count}}}"}' | jq -r '.'
 #+end_src
+
+#+RESULTS:
+#+begin_example
+{
+  "data": {
+    "agent": [
+      {
+        "id": "40c714bf-8a81-47c8-b3ea-5d9d614a4dc1",
+        "name": "Aline Ratke",
+        "agent_regions": [
+          {
+            "region": "SOUTH"
+          }
+        ]
+      }
+    ],
+    "order_aggregate": {
+      "aggregate": {
+        "count": 278
+      }
+    }
+  }
+}
+{
+  "data": {
+    "agent": [
+      {
+        "id": "5203b8b3-6c07-4dec-b71c-d05c072e1c2c",
+        "name": "Laurianne Stansby",
+        "agent_regions": [
+          {
+            "region": "NORTHEAST"
+          }
+        ]
+      }
+    ],
+    "order_aggregate": {
+      "aggregate": {
+        "count": 250
+      }
+    }
+  }
+}
+{
+  "data": {
+    "agent": [
+      {
+        "id": "7529e3f5-1ce1-4133-af04-5985e1e49ae4",
+        "name": "Phip Smorfit",
+        "agent_regions": [
+          {
+            "region": "PLAINS"
+          }
+        ]
+      }
+    ],
+    "order_aggregate": {
+      "aggregate": {
+        "count": 290
+      }
+    }
+  }
+}
+#+end_example
 
 
 
