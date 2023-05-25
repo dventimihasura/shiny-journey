@@ -2068,4 +2068,43 @@ update "order" set region = ((array[
   'SOUTHWEST'
   ])[floor(random()*9+1)])::text;
 
+
+-- random sample names from account to seed names for agent
+
+with
+  random_sample as (
+    select
+      name
+      from
+	account
+     order by random()
+     limit (select count(1) from region))
+    insert into agent (name) select
+			       *
+			       from
+				 random_sample;
+
+-- assign one agent to one sales region each
+
+with
+  ordered_sample as (
+    select
+      *,
+      row_number() over () ordinal
+      from
+	agent),
+  region as (
+    select
+      *,
+      row_number() over () ordinal
+      from
+	region
+     order by random())
+    insert into agent_region select
+			       ordered_sample.id,
+			       region.value region
+			       from
+				 region
+				 natural join ordered_sample;
+
 commit;
